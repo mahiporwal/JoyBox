@@ -428,7 +428,7 @@
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="2"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <input id="searchInput" type="search" placeholder="Search games..." autocomplete="off" aria-label="Search games">
     </label>
-    <button class="avatar" id="accountButton" aria-label="Sign in or create an account" title="Sign in or create an account">🦊</button>
+    <button class="avatar" id="accountButton" aria-label="Sign in or create an account" title="Sign in or create an account" hidden>🦊</button>
   </header>
 
   <main>
@@ -456,7 +456,7 @@
       <button class="category" data-category="Arcade"><span>🕹️</span> Arcade</button>
       <button class="category" data-category="Racing"><span>🏁</span> Racing</button>
       <button class="category" data-category="Sports"><span>⚽</span> Sports</button>
-      <button class="category" data-category="Favorites"><span>♥</span> Favorites</button>
+      <button class="category" id="favoritesCategory" data-category="Favorites" hidden><span>♥</span> Favorites</button>
     </nav>
 
     <section id="games" aria-labelledby="gamesTitle">
@@ -565,6 +565,7 @@
     const accountButton = document.querySelector("#accountButton");
     const favorites = new Set();
     let currentUser = null;
+    let accountsEnabled = true;
     let authMode = "login";
     let activeCategory = "All";
     let searchTerm = "";
@@ -619,6 +620,17 @@
     }
 
     async function refreshAccount() {
+      const config = await apiRequest("/api/config");
+      accountsEnabled = config.accountsEnabled;
+      accountButton.hidden = !accountsEnabled;
+      document.querySelector("#favoritesCategory").hidden = !accountsEnabled;
+      if (!accountsEnabled) {
+        currentUser = null;
+        favorites.clear();
+        renderGames();
+        showNotice("Guest mode is on. Sign-in and saved favorites will be available after account email is configured.");
+        return;
+      }
       const { user } = await apiRequest("/api/auth/me");
       currentUser = user;
       favorites.clear();
@@ -703,7 +715,7 @@
             <span class="badge">${game.badge}</span>
             <span class="cover-emoji" aria-hidden="true">${game.emoji}</span>
             </button>
-            <button class="favorite ${favorites.has(game.title) ? "is-favorite" : ""}" type="button" aria-label="${favorites.has(game.title) ? "Remove from" : "Add to"} favorites" aria-pressed="${favorites.has(game.title)}">♥</button>
+            <button class="favorite ${favorites.has(game.title) ? "is-favorite" : ""}" type="button" aria-label="${favorites.has(game.title) ? "Remove from" : "Add to"} favorites" aria-pressed="${favorites.has(game.title)}" ${accountsEnabled ? "" : "hidden"}>♥</button>
           </div>
           <div class="game-info"><h3>${game.title}</h3><span class="game-category">${game.category}</span></div>
         </article>`;
@@ -742,6 +754,7 @@
       if (!card) return;
       const game = games[Number(card.dataset.index)];
       if (event.target.closest(".favorite")) {
+        if (!accountsEnabled) return;
         if (!currentUser) {
           setAccountMessage("Sign in or create an account to save favorites across visits.");
           accountDialog.showModal();
@@ -793,6 +806,7 @@
       if (event.target === accountDialog) accountDialog.close();
     });
     accountButton.addEventListener("click", () => {
+      if (!accountsEnabled) return;
       window.accountLinkMode = null;
       setAccountMessage();
       if (!currentUser) setAuthMode("login");
