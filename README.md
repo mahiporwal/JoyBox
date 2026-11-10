@@ -53,16 +53,19 @@ Do not post domain-account credentials, database URLs, Resend keys, or DNS verif
 | `NODE_ENV` | Yes | `production` |
 | `HOST` | Yes | `0.0.0.0` |
 | `PORT` | Usually provided by the host | The host's assigned port |
-| `DATABASE_URL` | Yes | The managed PostgreSQL connection string |
+| `DATABASE_URL` | With accounts enabled | The managed PostgreSQL connection string |
 | `DATABASE_SSL` | Provider-dependent | Set to `true` if the provider requires TLS for PostgreSQL |
 | `COOKIE_SECURE` | No | Leave unset for secure HTTPS cookies |
 | `DB_POOL_SIZE` | No | Defaults to `10`; follow the database provider's connection limits |
 | `TRUST_PROXY` | Provider-dependent | Set to `true` only if the ingress proxy overwrites `X-Forwarded-For` and direct app access is blocked |
-| `PUBLIC_APP_URL` | Yes | Canonical HTTPS URL, such as `https://your-domain.example` |
-| `RESEND_API_KEY` | Yes | Resend API key stored as a secret |
-| `RESEND_FROM_EMAIL` | Yes | Verified sender, for example `Joybox <accounts@your-domain.example>` |
+| `ENABLE_ACCOUNTS` | No | Set to `false` for guest-only launch without email/domain setup; defaults to enabled |
+| `PUBLIC_APP_URL` | With accounts enabled | Canonical HTTPS URL, such as `https://your-service.onrender.com` |
+| `RESEND_API_KEY` | With accounts enabled | Resend API key stored as a secret |
+| `RESEND_FROM_EMAIL` | With accounts enabled | Verified sender, for example `Joybox <accounts@your-domain.example>` |
 
-Production startup requires the database and email configuration above and an HTTPS public URL. The database schema is created at startup. The host must provide HTTPS, health checks can use `/healthz`, and database backups must be enabled in the provider. Keep all secrets in the provider's secret/environment-variable manager; never commit them.
+For a guest-only deployment before you own a domain, set `NODE_ENV=production` and `ENABLE_ACCOUNTS=false`; remove `DATABASE_URL`, `PUBLIC_APP_URL`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` if you have not configured them. The games/catalog and public legal pages still work; account sign-in, signup, and favorites are hidden and their API endpoints are disabled. The account feature becomes available only when you switch `ENABLE_ACCOUNTS=true` and supply `DATABASE_URL`, `PUBLIC_APP_URL`, `RESEND_API_KEY`, and `RESEND_FROM_EMAIL`. Production startup validates those settings before accepting accounts.
+
+The database schema is created at startup when configured. The host must provide HTTPS, health checks can use `/healthz`, and database backups should be enabled in the provider. Keep all secrets in the provider's secret/environment-variable manager; never commit them.
 
 Email verification links expire after 24 hours. Password-reset links expire after one hour, are single-use, and invalidate active sessions. Email addresses must be verified before login. Configure and verify the sending domain in Resend before using public sign-up; test delivery and spam handling with your own addresses first. Unknown addresses receive the same password-reset and verification response to reduce account enumeration.
 
