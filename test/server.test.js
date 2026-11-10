@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const { after, before, test } = require("node:test");
@@ -67,6 +68,50 @@ test("health endpoint reports readiness", async () => {
   const response = await fetch(`${baseUrl}/healthz`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { status: "ok" });
+});
+
+test("production guest mode starts without database and email settings", () => {
+  const script = `
+    const server = require("./server");
+    server.listen(0, "127.0.0.1", async () => {
+      try {
+        const base = "http://127.0.0.1:" + server.address().port;
+        const config = await fetch(base + "/api/config");
+        const signup = await fetch(base + "/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: "Guest", email: "guest@example.com", password: "password one" })
+        });
+        console.log(JSON.stringify({ config: await config.json(), signupStatus: signup.status }));
+      } catch (error) {
+        console.error(error);
+        process.exitCode = 1;
+      } finally {
+        server.close();
+      }
+    });
+  `;
+  const result = spawnSync(process.execPath, ["-e", script], {
+    cwd: path.join(__dirname, ".."),
+    encoding: "utf8",
+    timeout: 15_000,
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      ENABLE_ACCOUNTS: "false",
+      DATABASE_URL: "",
+      RESEND_API_KEY: "",
+      RESEND_FROM_EMAIL: "",
+      PUBLIC_APP_URL: "",
+      HOST: "127.0.0.1",
+      PORT: "0"
+    }
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout.trim()), {
+    config: { accountsEnabled: false },
+    signupStatus: 503
+  });
 });
 
 test("signup, session, favorites, logout, and login work end to end", async () => {
