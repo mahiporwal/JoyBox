@@ -1,0 +1,16 @@
+{
+  "name": "joybox-arcade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A small arcade homepage with account and favorites APIs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}

@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3000
+      PUBLIC_APP_URL: http://127.0.0.1:3000
+      DATABASE_URL: postgres://joybox:${JOYBOX_DB_PASSWORD:?Copy .env.example to .env and set a random password}@db:5432/joybox
+      DATABASE_SSL: "false"
+      COOKIE_SECURE: "false"
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: joybox
+      POSTGRES_USER: joybox
+      POSTGRES_PASSWORD: ${JOYBOX_DB_PASSWORD:?Copy .env.example to .env and set a random password}
+    volumes:
+      - joybox_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U joybox -d joybox"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  joybox_db:
