@@ -9,12 +9,13 @@ const { createHash, randomBytes, scrypt: scryptCallback, timingSafeEqual } = req
 const { createPostgresStore } = require("./database");
 
 const scrypt = promisify(scryptCallback);
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = process.env.PORT === undefined ? 3000 : Number(process.env.PORT);
 const HOST = process.env.HOST || (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
 const COOKIE_NAME = "joybox_session";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
+const ACCOUNTS_ENABLED = process.env.ENABLE_ACCOUNTS !== "false";
 const DATA_DIR = process.env.JOYBOX_DATA_DIR || path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "accounts.json");
 const GAME_TITLES = new Set([
@@ -143,7 +144,7 @@ function createFileStore() {
   };
 }
 
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production" && ACCOUNTS_ENABLED) {
   const missing = ["DATABASE_URL", "RESEND_API_KEY", "RESEND_FROM_EMAIL", "PUBLIC_APP_URL"]
     .filter(name => !process.env[name]);
   if (missing.length) {
@@ -312,6 +313,14 @@ function consumeAuthAttempt(request) {
 
 async function handleApi(request, response, url) {
   if (!checkOrigin(request)) return sendError(response, 403, "This request origin is not allowed.");
+
+  if (request.method === "GET" && url.pathname === "/api/config") {
+    return sendJson(response, 200, { accountsEnabled: ACCOUNTS_ENABLED });
+  }
+
+  if (!ACCOUNTS_ENABLED && url.pathname.startsWith("/api/auth/")) {
+    return sendError(response, 503, "Accounts are temporarily unavailable.");
+  }
 
   if (request.method === "GET" && url.pathname === "/api/auth/me") {
     return sendJson(response, 200, { user: await currentUser(request) });
